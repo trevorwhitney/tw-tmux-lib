@@ -1,12 +1,12 @@
 #!/bin/bash
 
 sha256="$(nix-prefetch-url \
-	--unpack https://github.com/trevorwhitney/tmux-tw-lib/archive/main.tar.gz)"
+	--unpack https://github.com/trevorwhitney/tw-tmux-lib/archive/main.tar.gz)"
 
 cat <<EOF
 {
   owner = "trevorwhitney";
-  repo = "tmux-tw-lib";
+  repo = "tw-tmux-lib";
   rev = "main";
   sha256 = "${sha256}";
 }

@@ -28,6 +28,9 @@ echo "Loading tw-tmux-lib"
 tmux source -q "${current_dir}/tmux.conf"
 tmux source -q "${current_dir}/solarized.tmux.conf"
 
+
+tmux bind c run "${current_dir}/scripts/new_window_prompt.sh"
+
 tmux set-option -gq status-left "$(do_interpolation "$(tmux show-options -gv status-left)")"
 tmux set-option -gq status-right "$(do_interpolation "$(tmux show-options -gv status-right)")"
 

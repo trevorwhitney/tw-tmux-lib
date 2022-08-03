@@ -6,12 +6,10 @@ current_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 interpolation=(
   "\#{updates_available}"
-  "\#{uptime}"
   "\#{disk_usage}"
 )
 commands=(
   "#($current_dir/scripts/updates_available.sh)"
-  "#($current_dir/scripts/uptime.sh)"
   "#($current_dir/scripts/disk_usage.sh)"
 )
 

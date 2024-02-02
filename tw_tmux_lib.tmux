@@ -23,29 +23,31 @@ do_interpolation() {
 
 echo "Loading tw-tmux-lib"
 
-if [[ -z "${TMUX_THEME}" ]] || [[ "${TMUX_THEME}" == "solarized" ]]; then
-	if [[ -z "${BACKGROUND}" ]]; then
-		tmux source -q "${current_dir}/solarized-light.tmux.conf"
-	elif [[ "${BACKGROUND}" == "light" ]]; then
-		tmux source -q "${current_dir}/solarized-light.tmux.conf"
-	else
+background=${BACKGROUND:-light}
+theme=${TMUX_THEME:-everforest}
+if [[ "${theme}" == "solarized" ]]; then
+	if [[ "${background}" == "dark" ]]; then
+    echo "Loading solarized-light.tmux.conf"
 		tmux source -q "${current_dir}/solarized-dark.tmux.conf"
-	fi
-elif [[ "${TMUX_THEME}" == "flexoki" ]]; then
-	if [[ -z "${BACKGROUND}" ]]; then
-		tmux source -q "${current_dir}/flexoki-light.tmux.conf"
-	elif [[ "${BACKGROUND}" == "light" ]]; then
-		tmux source -q "${current_dir}/flexoki-light.tmux.conf"
 	else
+    echo "Loading solarized-light.tmux.conf"
+		tmux source -q "${current_dir}/solarized-light.tmux.conf"
+	fi
+elif [[ "${theme}" == "flexoki" ]]; then
+	if [[ "${background}" == "dark" ]]; then
+    echo "Loading flexoki-dark.tmux.conf"
 		tmux source -q "${current_dir}/flexoki-dark.tmux.conf"
-	fi
-elif [[ "${TMUX_THEME}" == "everforest" ]]; then
-	if [[ -z "${BACKGROUND}" ]]; then
-		tmux source -q "${current_dir}/everforest-light.tmux.conf"
-	elif [[ "${BACKGROUND}" == "light" ]]; then
-		tmux source -q "${current_dir}/everforest-light.tmux.conf"
 	else
+    echo "Loading flexoki-light.tmux.conf"
+		tmux source -q "${current_dir}/flexoki-light.tmux.conf"
+	fi
+elif [[ "${theme}" == "everforest" ]]; then
+	if [[ "${background}" == "dark" ]]; then
+    echo "Loading everforest-dark.tmux.conf"
 		tmux source -q "${current_dir}/everforest-dark.tmux.conf"
+	else
+    echo "Loading everforest-light.tmux.conf"
+		tmux source -q "${current_dir}/everforest-light.tmux.conf"
 	fi
 fi
 

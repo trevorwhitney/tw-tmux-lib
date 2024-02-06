@@ -21,32 +21,24 @@ do_interpolation() {
 	echo "$all_interpolated"
 }
 
-echo "Loading tw-tmux-lib"
-
 background=${BACKGROUND:-light}
 theme=${TMUX_THEME:-everforest}
 if [[ "${theme}" == "solarized" ]]; then
 	if [[ "${background}" == "dark" ]]; then
-    echo "Loading solarized-light.tmux.conf"
 		tmux source -q "${current_dir}/solarized-dark.tmux.conf"
 	else
-    echo "Loading solarized-light.tmux.conf"
 		tmux source -q "${current_dir}/solarized-light.tmux.conf"
 	fi
 elif [[ "${theme}" == "flexoki" ]]; then
 	if [[ "${background}" == "dark" ]]; then
-    echo "Loading flexoki-dark.tmux.conf"
 		tmux source -q "${current_dir}/flexoki-dark.tmux.conf"
 	else
-    echo "Loading flexoki-light.tmux.conf"
 		tmux source -q "${current_dir}/flexoki-light.tmux.conf"
 	fi
 elif [[ "${theme}" == "everforest" ]]; then
 	if [[ "${background}" == "dark" ]]; then
-    echo "Loading everforest-dark.tmux.conf"
 		tmux source -q "${current_dir}/everforest-dark.tmux.conf"
 	else
-    echo "Loading everforest-light.tmux.conf"
 		tmux source -q "${current_dir}/everforest-light.tmux.conf"
 	fi
 fi

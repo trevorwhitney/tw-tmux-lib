@@ -43,6 +43,12 @@ elif [[ "${theme}" == "everforest" ]]; then
 	fi
 fi
 
+if [[ $(uname) == "Darwin" ]]; then
+	tmux source -q "${current_dir}/clipboard-macos.tmux.conf"
+else
+	tmux source -q "${current_dir}/clipboard-linux.tmux.conf"
+fi
+
 tmux source -q "${current_dir}/tmux.conf"
 
 tmux bind c run "${current_dir}/scripts/new_window_prompt.sh"

@@ -52,6 +52,7 @@ fi
 tmux source -q "${current_dir}/tmux.conf"
 
 tmux bind c run "${current_dir}/scripts/new_window_prompt.sh"
+tmux bind t run "${current_dir}/scripts/new_tmp.sh"
 
 tmux set-option -gq status-left "$(do_interpolation "$(tmux show-options -gv status-left)")"
 tmux set-option -gq status-right "$(do_interpolation "$(tmux show-options -gv status-right)")"

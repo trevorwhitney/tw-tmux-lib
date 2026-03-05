@@ -21,28 +21,6 @@ do_interpolation() {
 	echo "$all_interpolated"
 }
 
-background=${BACKGROUND:-light}
-theme=${TMUX_THEME:-everforest}
-if [[ "${theme}" == "solarized" ]]; then
-	if [[ "${background}" == "dark" ]]; then
-		tmux source -q "${current_dir}/solarized-dark.tmux.conf"
-	else
-		tmux source -q "${current_dir}/solarized-light.tmux.conf"
-	fi
-elif [[ "${theme}" == "flexoki" ]]; then
-	if [[ "${background}" == "dark" ]]; then
-		tmux source -q "${current_dir}/flexoki-dark.tmux.conf"
-	else
-		tmux source -q "${current_dir}/flexoki-light.tmux.conf"
-	fi
-elif [[ "${theme}" == "everforest" ]]; then
-	if [[ "${background}" == "dark" ]]; then
-		tmux source -q "${current_dir}/everforest-dark.tmux.conf"
-	else
-		tmux source -q "${current_dir}/everforest-light.tmux.conf"
-	fi
-fi
-
 if [[ $(uname) == "Darwin" ]]; then
 	tmux source -q "${current_dir}/clipboard-macos.tmux.conf"
 else

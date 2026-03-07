@@ -1,0 +1,19 @@
+set nocompatible
+set noswapfile
+set nobackup
+set nowritebackup
+set number
+set linebreak
+set wrap
+set laststatus=2
+set statusline=\ workmux\ prompt\ \ \|\ \ :wq\ to\ save\ \ \|\ \ :q!\ to\ cancel
+
+" detect macOS light/dark mode
+if system('defaults read -g AppleInterfaceStyle 2>/dev/null') =~ 'Dark'
+  set background=dark
+else
+  set background=light
+endif
+
+" quick escape
+inoremap jj <Esc>

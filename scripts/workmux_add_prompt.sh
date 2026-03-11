@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # Opens a minimal vim editor for writing a workmux prompt,
-# then creates a new worktree with an LLM-generated branch name.
+# then creates a new worktree with a random branch name.
+# The worktree's tmux window is created in the background (-b flag).
 
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOGDIR="${XDG_CACHE_HOME:-$HOME/.cache}/tw-tmux-lib"
@@ -13,6 +14,23 @@ mkdir -p "$LOGDIR"
 
 log() {
 	echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >>"$LOGFILE"
+}
+
+generate_name() {
+	local adjectives=(
+		swift calm bold bright cool dark fast flat fresh
+		glad gold keen kind light live long mild neat quick
+		rare rich sharp slim smart soft solid strong warm wise
+	)
+	local nouns=(
+		arch bay bird bloom brook cape cave cliff cloud cove
+		creek dawn deer dock elm fern finch flame frost glen
+		grove hawk hill jade lake lark leaf mesa moon oak
+		palm peak pine pond reef ridge sage shore stone trail
+	)
+	local adj="${adjectives[$((RANDOM % ${#adjectives[@]}))]}"
+	local noun="${nouns[$((RANDOM % ${#nouns[@]}))]}"
+	echo "${adj}-${noun}"
 }
 
 log "--- Script started (pwd: $(pwd)) ---"
@@ -92,17 +110,19 @@ if [ $VIM_EXIT -ne 0 ]; then
 fi
 
 if [ -s "$TMPFILE" ]; then
+	NAME=$(generate_name)
 	log "Prompt content: $(cat "$TMPFILE")"
-	log "Running: workmux add -A -P $TMPFILE"
+	log "Generated name: $NAME"
+	log "Running: workmux add $NAME -b -P $TMPFILE"
 
-	workmux add -A -P "$TMPFILE" 2>&1 | tee -a "$LOGFILE"
+	workmux add "$NAME" -b -P "$TMPFILE" 2>&1 | tee -a "$LOGFILE"
 	EXIT_CODE=${PIPESTATUS[0]}
 	log "workmux exited with code $EXIT_CODE"
 
-	if [ $EXIT_CODE -ne 0 ]; then
-		echo ""
-		echo "workmux failed (exit $EXIT_CODE). Press enter to close."
-		read
+	if [ $EXIT_CODE -eq 0 ]; then
+		tmux display-message "Worktree '$NAME' created in background"
+	else
+		tmux display-message -d 5000 "workmux failed for '$NAME' — see $LOGFILE"
 	fi
 else
 	log "Empty prompt, skipping workmux add"

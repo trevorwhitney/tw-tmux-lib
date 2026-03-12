@@ -7,6 +7,8 @@ set linebreak
 set wrap
 set laststatus=2
 set statusline=\ workmux\ prompt\ \ \|\ \ :wq\ to\ save\ \ \|\ \ :q!\ to\ cancel
+syntax on
+filetype on
 
 " detect macOS light/dark mode
 if system('defaults read -g AppleInterfaceStyle 2>/dev/null') =~ 'Dark'

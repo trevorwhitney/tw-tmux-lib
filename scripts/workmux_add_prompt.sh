@@ -8,7 +8,7 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOGDIR="${XDG_CACHE_HOME:-$HOME/.cache}/tw-tmux-lib"
 LOGFILE="${LOGDIR}/workmux_add_prompt.log"
 VIMRC="${CURRENT_DIR}/../conf/vimrc.minimal"
-TMPFILE=$(mktemp /tmp/workmux-prompt.XXXXXX)
+TMPFILE=$(mktemp /tmp/workmux-prompt.XXXXXX.md)
 
 mkdir -p "$LOGDIR"
 
@@ -96,7 +96,21 @@ cd "$WORKTREE_ROOT" || {
 }
 log "Changed directory to $WORKTREE_ROOT"
 
-vim -u "$VIMRC" "$TMPFILE"
+# Pre-populate with frontmatter template (commented out)
+# Uncomment and edit the foreach lines to use workmux's matrix feature
+# Docs: https://workmux.raine.dev/reference/commands/add#variable-matrices-in-prompt-files
+cat > "$TMPFILE" << 'TEMPLATE'
+---
+# Frontmatter docs: https://workmux.raine.dev/reference/commands/add#variable-matrices-in-prompt-files
+# foreach:
+#   agent: [claude, gemini]
+---
+
+TEMPLATE
+
+TEMPLATE_HASH=$(md5 -q "$TMPFILE" 2>/dev/null || md5sum "$TMPFILE" | cut -d' ' -f1)
+
+vim -u "$VIMRC" '+$' "$TMPFILE"
 VIM_EXIT=$?
 log "vim exited with code $VIM_EXIT"
 
@@ -109,7 +123,8 @@ if [ $VIM_EXIT -ne 0 ]; then
 	exit 1
 fi
 
-if [ -s "$TMPFILE" ]; then
+CURRENT_HASH=$(md5 -q "$TMPFILE" 2>/dev/null || md5sum "$TMPFILE" | cut -d' ' -f1)
+if [ "$CURRENT_HASH" != "$TEMPLATE_HASH" ]; then
 	NAME=$(generate_name)
 	log "Prompt content: $(cat "$TMPFILE")"
 	log "Generated name: $NAME"

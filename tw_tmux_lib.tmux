@@ -7,10 +7,12 @@ current_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 interpolation=(
 	"\#{updates_available}"
 	"\#{disk_usage}"
+	"\#{git_status}"
 )
 commands=(
 	"#($current_dir/scripts/updates_available.sh)"
 	"#($current_dir/scripts/disk_usage.sh)"
+	"#($current_dir/scripts/git_status.sh #{pane_current_path})"
 )
 
 do_interpolation() {

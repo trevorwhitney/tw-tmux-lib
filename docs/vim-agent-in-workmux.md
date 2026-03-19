@@ -2,12 +2,14 @@
 
 ## Status
 
-**Implemented (workaround)** — interim solution pending [workmux#82](https://github.com/raine/workmux/issues/82).
+**Implemented** — [workmux#82](https://github.com/raine/workmux/issues/82) resolved
+in workmux v0.1.141 with `prompt_file_only` config option and `--prompt-file-only` CLI flag.
 
-`workmux_add_prompt.sh` now calls `workmux add` without `-P`, then writes the
-prompt file directly to `.workmux/PROMPT-<branch>.md` using `workmux path
-<name>` to locate the worktree. Frontmatter template support is disabled until
-workmux#82 is resolved and `-P` can be used again.
+Workmux now writes the resolved prompt to `.workmux/PROMPT-<branch>.md` even
+when no agent pane exists. The config sets `prompt_file_only: true` and the pane
+command is `nvim`. Vim detects the prompt file on startup via `WorkmuxPrompt()`
+in tw-vim-lib and launches opencode with the prompt content. Frontmatter
+templates and `foreach:` matrices work natively through workmux's `-P` flag.
 
 ## Problem
 

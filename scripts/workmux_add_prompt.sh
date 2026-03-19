@@ -96,17 +96,10 @@ cd "$WORKTREE_ROOT" || {
 }
 log "Changed directory to $WORKTREE_ROOT"
 
-# Pre-populate with frontmatter template (commented out)
-# Uncomment and edit the foreach lines to use workmux's matrix feature
-# Docs: https://workmux.raine.dev/reference/commands/add#variable-matrices-in-prompt-files
-cat > "$TMPFILE" << 'TEMPLATE'
----
-# Frontmatter docs: https://workmux.raine.dev/reference/commands/add#variable-matrices-in-prompt-files
-# foreach:
-#   agent: [claude, gemini]
----
-
-TEMPLATE
+# TODO: Restore frontmatter template when workmux#82 is resolved
+# and we can pass -P to workmux again for prompt parsing.
+# See: https://github.com/raine/workmux/issues/82
+: > "$TMPFILE"
 
 TEMPLATE_HASH=$(md5 -q "$TMPFILE" 2>/dev/null || md5sum "$TMPFILE" | cut -d' ' -f1)
 
@@ -128,13 +121,24 @@ if [ "$CURRENT_HASH" != "$TEMPLATE_HASH" ]; then
 	NAME=$(generate_name)
 	log "Prompt content: $(cat "$TMPFILE")"
 	log "Generated name: $NAME"
-	log "Running: workmux add $NAME -b -P $TMPFILE"
+	log "Running: workmux add $NAME -b (without prompt)"
 
-	workmux add "$NAME" -b -P "$TMPFILE" 2>&1 | tee -a "$LOGFILE"
+	workmux add "$NAME" -b 2>&1 | tee -a "$LOGFILE"
 	EXIT_CODE=${PIPESTATUS[0]}
 	log "workmux exited with code $EXIT_CODE"
 
 	if [ $EXIT_CODE -eq 0 ]; then
+		# Write prompt file to the worktree
+		WORKTREE_PATH=$(workmux path "$NAME" 2>/dev/null)
+		if [ -n "$WORKTREE_PATH" ] && [ -d "$WORKTREE_PATH" ]; then
+			PROMPT_DIR="${WORKTREE_PATH}/.workmux"
+			mkdir -p "$PROMPT_DIR"
+			PROMPT_FILE="${PROMPT_DIR}/PROMPT-${NAME}.md"
+			cp "$TMPFILE" "$PROMPT_FILE"
+			log "Wrote prompt to $PROMPT_FILE"
+		else
+			log "WARNING: Could not determine worktree path for $NAME"
+		fi
 		tmux display-message "Worktree '$NAME' created in background"
 	else
 		tmux display-message -d 5000 "workmux failed for '$NAME' — see $LOGFILE"

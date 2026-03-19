@@ -2,8 +2,12 @@
 
 ## Status
 
-**Blocked** on [workmux#82](https://github.com/raine/workmux/issues/82) -- waiting for
-workmux to support writing the prompt file without requiring an agent pane.
+**Implemented (workaround)** — interim solution pending [workmux#82](https://github.com/raine/workmux/issues/82).
+
+`workmux_add_prompt.sh` now calls `workmux add` without `-P`, then writes the
+prompt file directly to `.workmux/PROMPT-<branch>.md` using `workmux path
+<name>` to locate the worktree. Frontmatter template support is disabled until
+workmux#82 is resolved and `-P` can be used again.
 
 ## Problem
 

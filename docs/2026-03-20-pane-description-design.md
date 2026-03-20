@@ -29,9 +29,12 @@ generate a short description:
    is non-nil. If either fails, log at debug level and skip description
    generation entirely.
 
-2. Cap `prompt_text` to the first 2000 characters before building the message.
-   This prevents `ARG_MAX` issues on macOS (256KB limit) and avoids sending
-   unnecessarily large payloads to Haiku for a 3-5 word summary.
+2. Cap `prompt_text` to the first 2000 characters before building the message
+   via `prompt_text:sub(1, 2000)`. This is a silent truncation, not an error —
+   the full prompt is still passed to the agent, only the description generation
+   sees the capped version. This prevents `ARG_MAX` issues on macOS (256KB
+   limit) and avoids sending unnecessarily large payloads to Haiku for a 3-5
+   word summary.
 
 3. Use `vim.system()` (non-blocking, argv-style) to call `opencode run`:
 
@@ -124,16 +127,16 @@ generate a short description:
 2. Add a keybinding for manually setting/updating the description:
 
    ```
-   bind M-d command-prompt -p "pane description:" "set -p @desc '%%'"
+   bind C-t command-prompt -p "pane description:" "set -p @desc '%%'"
    ```
 
-   `prefix M-d` (Alt-d) avoids conflict with the existing `prefix C-d`
-   (detach) binding at `tmux.conf:89`.
+   `prefix C-t` is unbound in the current config and serves as a mnemonic
+   for "tag" or "title".
 
    This covers worktrees created before this feature, or overriding a bad
    LLM-generated description. Entering an empty string sets `@desc` to `""`
-   (not unset), but the `#{?@desc,...}` conditional treats empty as falsy,
-   so the description is hidden from the status bar. To truly unset,
+   (not truly unset), but the `#{?@desc,...}` conditional treats empty as
+   falsy, so the description is hidden from the status bar. To truly unset,
    run `tmux set -pu @desc` manually.
 
 ## Why this split

@@ -99,7 +99,7 @@ log "Changed directory to $WORKTREE_ROOT"
 # Pre-populate with frontmatter template (commented out)
 # Uncomment and edit the foreach lines to use workmux's matrix feature
 # Docs: https://workmux.raine.dev/reference/commands/add#variable-matrices-in-prompt-files
-cat > "$TMPFILE" << 'TEMPLATE'
+cat >"$TMPFILE" <<'TEMPLATE'
 ---
 # Frontmatter docs: https://workmux.raine.dev/reference/commands/add#variable-matrices-in-prompt-files
 # foreach:
@@ -128,20 +128,21 @@ if [ "$CURRENT_HASH" != "$TEMPLATE_HASH" ]; then
 	NAME=$(generate_name)
 	log "Prompt content: $(cat "$TMPFILE")"
 	log "Generated name: $NAME"
-	log "Running: workmux add $NAME -b -P $TMPFILE"
+	log "Handing off to tmux run-shell: workmux add $NAME -b -P $TMPFILE"
 
-	workmux add "$NAME" -b -P "$TMPFILE" 2>&1 | tee -a "$LOGFILE"
-	EXIT_CODE=${PIPESTATUS[0]}
-	log "workmux exited with code $EXIT_CODE"
-
-	if [ $EXIT_CODE -eq 0 ]; then
-		tmux display-message "Worktree '$NAME' created in background"
-	else
-		tmux display-message -d 5000 "workmux failed for '$NAME' — see $LOGFILE"
+	# Hand off to tmux server so the background work survives popup teardown.
+	# tmux run-shell -b runs the command as a server-managed job, fully
+	# independent of this script's process group and PTY.
+	BG_SCRIPT="${CURRENT_DIR}/workmux_add_bg.sh"
+	if ! tmux run-shell -b "$(printf '%q ' "$BG_SCRIPT" "$NAME" "$TMPFILE" "$LOGFILE" "$WORKTREE_ROOT")"; then
+		log "ERROR: tmux run-shell failed to launch background job"
+		tmux display-message -d 5000 "workmux failed to launch for '$NAME' — see $LOGFILE"
+		rm -f "$TMPFILE"
 	fi
+
+	log "--- Script finished (workmux handed off to background) ---"
 else
 	log "Empty prompt, skipping workmux add"
+	rm -f "$TMPFILE"
+	log "--- Script finished ---"
 fi
-
-rm -f "$TMPFILE"
-log "--- Script finished ---"

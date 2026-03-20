@@ -16,27 +16,59 @@ Attach a short LLM-generated description to each pane via tmux's user option
 
 ### Two repos, three changes
 
+The tw-tmux-lib changes are fully independent of the tw-vim-lib changes and
+can ship first. Each repo gets its own implementation plan and commit(s).
+
 **tw-vim-lib** (`lua/tw/agent/init.lua` — `WorkmuxPrompt` function):
 
 After reading the prompt file content (which workmux has already stripped of
 YAML frontmatter), and before deleting the prompt files, spawn an async call to
 generate a short description:
 
-1. Use `vim.system()` (non-blocking) to pipe the prompt text to `opencode run`
-   with a system prompt:
+1. Guard: check `vim.fn.executable("opencode") == 1` and `os.getenv("TMUX")`
+   is non-nil. If either fails, log at debug level and skip description
+   generation entirely.
 
-   > Summarize this task in 3-5 words. Output ONLY the summary, nothing else.
-   > No quotes, no punctuation, no explanation.
+2. Use `vim.system()` (non-blocking, argv-style) to call `opencode run`:
 
-2. In the `on_exit` callback:
-   - Trim whitespace, take only the first line, truncate to <50 characters
-   - If non-empty, run `tmux set -p @desc "<description>"` via `vim.system()`
-     (no `-t` flag needed — we are inside the target pane)
+   ```lua
+   local system_prompt = "Summarize this task in 3-5 words. "
+     .. "Output ONLY the summary, nothing else. "
+     .. "No quotes, no punctuation, no explanation."
+   local message = system_prompt .. " The task: " .. prompt_text
+
+   vim.system(
+     { "opencode", "run", "--format", "json", "--model",
+       "anthropic/claude-haiku-4-5", message },
+     { timeout = 15000 },
+     on_exit_callback
+   )
+   ```
+
+   The `--format json` flag produces structured output where the text part has
+   `type: "text"` and the description is in `.part.text`. This avoids parsing
+   ANSI escape sequences from the default formatted output.
+
+3. In the `on_exit` callback, extract the description from JSON output:
+   - Parse each line as JSON, find the object with `type == "text"`
+   - Read `.part.text` as the raw description
+   - Trim whitespace, take only the first line
+   - Strip any non-printable/control characters
+   - Truncate to max 50 characters
+   - If non-empty, set the pane user option via argv-style invocation:
+
+     ```lua
+     vim.system({ "tmux", "set", "-p", "@desc", description })
+     ```
+
+     No `-t` flag needed — we are inside the target pane. Using argv-style
+     (not shell string) eliminates shell injection risk from LLM output.
    - Log success or failure
 
-3. Error handling: if `opencode run` fails, returns empty, or times out, log
-   and exit silently. The status bar simply won't show a description for that
-   pane. No user disruption.
+4. Error handling: if `opencode run` exits non-zero, times out (15s), returns
+   empty output, or produces unparseable JSON, log at warn level and exit
+   silently. The status bar simply won't show a description for that pane.
+   No user disruption.
 
 **tw-tmux-lib** (`tmux.conf`):
 
@@ -54,14 +86,29 @@ generate a short description:
    The `#{?@desc,#{@desc} | ,}` conditional renders the description with a
    trailing separator when set, or nothing when unset.
 
+   Note: `status-left` is global and `@desc` is pane-local. Tmux resolves
+   `#{@desc}` in the context of the active pane. This means the description
+   shown is always for the currently focused pane/window. This is the intended
+   behavior — when switching between windows, the status bar updates to show
+   the description for whichever window you're looking at. Since you focus a
+   window to work in it, that's when you need the context.
+
+   Increase `status-left-length` from 100 to 150 to accommodate the
+   additional description text (up to ~50 chars plus separator).
+
 2. Add a keybinding for manually setting/updating the description:
 
    ```
-   bind C-d command-prompt -p "pane description:" "set -p @desc '%%'"
+   bind M-d command-prompt -p "pane description:" "set -p @desc '%%'"
    ```
 
+   `prefix M-d` (Alt-d) avoids conflict with the existing `prefix C-d`
+   (detach) binding at `tmux.conf:89`.
+
    This covers worktrees created before this feature, or overriding a bad
-   LLM-generated description.
+   LLM-generated description. Entering an empty string effectively hides the
+   description from the status bar (the `#{?@desc,...}` conditional treats
+   empty as falsy).
 
 ## Why this split
 

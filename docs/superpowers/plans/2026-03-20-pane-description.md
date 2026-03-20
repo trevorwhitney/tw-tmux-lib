@@ -14,124 +14,97 @@
 
 ## Part 1: tw-tmux-lib (this repo)
 
-### Task 1: Add @desc conditional display to status-left
+### Task 1: Add @desc display and manual keybinding to tmux.conf
 
 **Files:**
 
-- Modify: `tmux.conf:13` (status-left-length)
-- Modify: `tmux.conf:22-24` (status-left comment and value)
+- Modify: `tmux.conf` — `status-left-length`, `status-left`, and new keybinding
 
 - [ ] **Step 1: Increase status-left-length from 100 to 150**
 
-In `tmux.conf`, change line 13:
+Find the `set -g status-left-length 100` line and change to:
 
 ```tmux
-# Before
-set -g status-left-length 100
-
-# After
 set -g status-left-length 150
 ```
 
 - [ ] **Step 2: Add @desc conditional to status-left**
 
-In `tmux.conf`, change lines 22-24:
+Find the `status-left` line (contains `#{git_status}`) and update the comment
+and value:
 
 ```tmux
-# Before
-# Status left: time | hostname | git branch | session
-set -g status-left-style "default"
-set -g status-left "%H:%M:%S | 󰟀 #(hostname) | #{git_status}| 󱎂 #S "
-
-# After
 # Status left: time | hostname | git branch | desc (if set) | session
 set -g status-left-style "default"
 set -g status-left "%H:%M:%S | 󰟀 #(hostname) | #{git_status}| #{?@desc,#{@desc} | ,}󱎂 #S "
 ```
 
-The `#{?@desc,#{@desc} | ,}` conditional renders the description with a
-trailing ` | ` separator when set, or nothing when unset/empty.
+No changes to `tw_tmux_lib.tmux` or `do_interpolation` are needed — `@desc` is
+a native tmux user option that passes through the interpolation function
+unmodified.
 
-- [ ] **Step 3: Verify manually**
+- [ ] **Step 3: Add prefix C-t keybinding**
 
-Reload tmux config and test:
-
-```bash
-# Reload
-tmux source-file ~/.config/tmux/tmux.conf
-
-# Set a test description on current pane
-tmux set -p @desc "test description"
-# Verify it appears in status bar between git branch and session name
-
-# Clear it
-tmux set -pu @desc
-# Verify it disappears and no stray separator remains
-```
-
-- [ ] **Step 4: Commit**
-
-```bash
-git add tmux.conf
-git commit -m "feat: display @desc pane user option in status-left"
-```
-
-### Task 2: Add prefix C-t keybinding for manual description entry
-
-**Files:**
-
-- Modify: `tmux.conf` (add after line 89, near other keybindings)
-
-- [ ] **Step 1: Add the keybinding**
-
-In `tmux.conf`, add after the `bind C-d detach` line (line 89):
+After the `bind C-d detach` line, add:
 
 ```tmux
 # set pane description (shown in status bar when set)
 bind C-t command-prompt -p "pane description:" "set -p @desc '%%'"
 ```
 
-- [ ] **Step 2: Verify manually**
+Note: `prefix t` (without Ctrl) is already bound in `tw_tmux_lib.tmux` for
+`new_tmp.sh`; `prefix C-t` is distinct and unbound.
 
-```bash
-# Reload config
-tmux source-file ~/.config/tmux/tmux.conf
+- [ ] **Step 4: Verify**
 
-# Press prefix C-t, type "my test desc", press enter
-# Verify @desc appears in status bar
+Reload config, then: `tmux set -p @desc "test"` — confirm it appears in
+status bar. `tmux set -pu @desc` — confirm it disappears cleanly.
 
-# Press prefix C-t, press enter with empty input
-# Verify description disappears from status bar
-```
-
-- [ ] **Step 3: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add tmux.conf
-git commit -m "feat: add prefix C-t keybinding to set pane description"
+git commit -m "feat: display @desc pane description in status-left with C-t keybinding"
 ```
 
 ---
 
 ## Part 2: tw-vim-lib (separate repo: ~/workspace/tw-vim-lib/tw-vim-lib)
 
-### Task 3: Add async description generation to WorkmuxPrompt
+### Task 2: Add async description generation to WorkmuxPrompt
 
 **Files:**
 
-- Modify: `lua/tw/agent/init.lua:816-852` (WorkmuxPrompt function)
+- Modify: `lua/tw/agent/init.lua` — add helper before `WorkmuxPrompt`, call it from within
 
-- [ ] **Step 1: Add the generate_pane_description helper function**
+Refer to `docs/2026-03-20-pane-description-design.md` sections 1-5 for the
+full behavioral spec (guards, command invocation, JSON parsing, sanitization
+pipeline, error handling).
 
-In `lua/tw/agent/init.lua`, add a new local function *before* `WorkmuxPrompt`
-(before line 816). This function encapsulates the async LLM call and tmux
-set logic:
+- [ ] **Step 1: Add generate_pane_description helper function**
+
+Add a new `local function generate_pane_description(prompt_text)` immediately
+before the `function M.WorkmuxPrompt()` definition. The function:
+
+1. Guards: return early if `vim.fn.executable("opencode") ~= 1` or
+   `os.getenv("TMUX")` is nil. Log at debug level.
+2. Caps prompt to 2000 chars: `prompt_text:sub(1, 2000)`
+3. Builds message with instructions prefix (see spec for exact wording)
+4. Calls `vim.system()` argv-style with `opencode run --format json --model
+   anthropic/claude-haiku-4-5` and 15s timeout
+5. In the `on_exit` callback (wrapped in `vim.schedule`):
+   - Returns early if exit code ~= 0 or stdout is empty (log warn)
+   - Parses NDJSON: iterates lines, `pcall(vim.json.decode, line)`, collects
+     `.part.text` from all `type == "text"` objects, concatenates in order
+   - Sanitizes: `vim.trim` → strip control chars (`gsub("[%c]", "")`) →
+     truncate to 50 chars → final `vim.trim`
+   - If non-empty, calls `vim.system({ "tmux", "set", "-p", "@desc", desc })`
+     (argv-style, no shell). Logs warn on `tmux` failure.
 
 ```lua
 --- Generate a short pane description from prompt text via LLM and set @desc.
 --- Fire-and-forget: errors are logged but never disrupt the user.
 local function generate_pane_description(prompt_text)
-	-- Guard: need opencode binary and tmux environment
 	if vim.fn.executable("opencode") ~= 1 then
 		log.debug("generate_pane_description: opencode not found, skipping")
 		return
@@ -151,7 +124,6 @@ local function generate_pane_description(prompt_text)
 		{ "opencode", "run", "--format", "json", "--model", "anthropic/claude-haiku-4-5", message },
 		{ timeout = 15000 },
 		function(result)
-			-- Schedule back to main loop for safe vim API access
 			vim.schedule(function()
 				if result.code ~= 0 then
 					log.warn("generate_pane_description: opencode exited with code " .. tostring(result.code))
@@ -160,7 +132,7 @@ local function generate_pane_description(prompt_text)
 
 				local stdout = result.stdout or ""
 				if stdout == "" then
-					log.warn("generate_pane_description: opencode returned empty output")
+					log.warn("generate_pane_description: empty output")
 					return
 				end
 
@@ -176,32 +148,21 @@ local function generate_pane_description(prompt_text)
 					end
 				end
 
-				local raw = table.concat(parts, " ")
+				local desc = vim.trim(table.concat(parts, " "))
+				desc = desc:gsub("[%c]", "")
+				desc = desc:sub(1, 50)
+				desc = vim.trim(desc)
 
-				-- Sanitization pipeline (order matters):
-				-- 1. Strip leading/trailing whitespace
-				raw = vim.trim(raw)
-				-- 2. Take substring up to the first newline
-				raw = raw:match("^([^\n]*)") or raw
-				-- 3. Strip surrounding single and double quotes
-				raw = raw:gsub("^[\"']+", ""):gsub("[\"']+$", "")
-				-- 4. Strip non-printable/control characters (keep printable ASCII + UTF-8)
-				raw = raw:gsub("[%c]", "")
-				-- 5. Truncate to max 50 characters
-				raw = raw:sub(1, 50)
-				-- Final trim in case truncation left trailing space
-				raw = vim.trim(raw)
-
-				if raw == "" then
-					log.warn("generate_pane_description: sanitized description is empty")
+				if desc == "" then
+					log.warn("generate_pane_description: empty after sanitization")
 					return
 				end
 
-				log.info("generate_pane_description: setting @desc = " .. raw)
-				vim.system({ "tmux", "set", "-p", "@desc", raw }, {}, function(tmux_result)
+				log.info("generate_pane_description: @desc = " .. desc)
+				vim.system({ "tmux", "set", "-p", "@desc", desc }, {}, function(tmux_result)
 					vim.schedule(function()
 						if tmux_result.code ~= 0 then
-							log.warn("generate_pane_description: tmux set failed with code " .. tostring(tmux_result.code))
+							log.warn("generate_pane_description: tmux set failed: " .. tostring(tmux_result.code))
 						end
 					end)
 				end)
@@ -211,11 +172,10 @@ local function generate_pane_description(prompt_text)
 end
 ```
 
-- [ ] **Step 2: Call generate_pane_description from WorkmuxPrompt**
+- [ ] **Step 2: Call from WorkmuxPrompt**
 
-In the `WorkmuxPrompt` function, add the call after `prompt_text` is
-constructed (after line 838) and before the prompt files are deleted
-(before line 840):
+In `WorkmuxPrompt`, find the line `local prompt_text = table.concat(lines, "\n")`.
+Add the call immediately after it, before the file deletion loop:
 
 ```lua
 	local prompt_text = table.concat(lines, "\n")
@@ -226,19 +186,11 @@ constructed (after line 838) and before the prompt files are deleted
 	-- Clean up all prompt files so they aren't re-sent on restart
 ```
 
-- [ ] **Step 3: Verify manually**
+- [ ] **Step 3: Verify**
 
-1. Start a tmux session
-2. Use `prefix C-a` to create a new workmux worktree with a prompt
-3. Switch to the new window
-4. Wait 2-5 seconds for the LLM to respond
-5. Check the status bar — the description should appear between git branch
-   and session name
-6. Verify with: `tmux show-options -p @desc`
-
-Test error paths:
-- Create a worktree without a prompt file — no `@desc` should be set
-- Temporarily rename `opencode` binary — should log debug and skip silently
+Create a workmux worktree with a prompt via `prefix C-a`. After 2-5s, run
+`tmux show-options -p @desc` in the new pane to confirm the description was
+set. Note: status bar display requires Part 1 (tw-tmux-lib) to be deployed.
 
 - [ ] **Step 4: Commit**
 

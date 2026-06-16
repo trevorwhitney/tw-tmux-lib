@@ -1,8 +1,10 @@
 #!/bin/bash
 
 # Opens a minimal vim editor for writing a workmux prompt,
-# then creates a new worktree with a random branch name.
-# The worktree's tmux window is created in the background (-b flag).
+# then creates a new worktree whose branch name is generated from the prompt
+# by an LLM (workmux `-A/--auto-name`). The worktree's tmux window is created
+# in the background (-b flag), and the LLM naming runs in that background job
+# so it does not block closing this popup.
 
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOGDIR="${XDG_CACHE_HOME:-$HOME/.cache}/tw-tmux-lib"
@@ -14,23 +16,6 @@ mkdir -p "$LOGDIR"
 
 log() {
 	echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >>"$LOGFILE"
-}
-
-generate_name() {
-	local adjectives=(
-		swift calm bold bright cool dark fast flat fresh
-		glad gold keen kind light live long mild neat quick
-		rare rich sharp slim smart soft solid strong warm wise
-	)
-	local nouns=(
-		arch bay bird bloom brook cape cave cliff cloud cove
-		creek dawn deer dock elm fern finch flame frost glen
-		grove hawk hill jade lake lark leaf mesa moon oak
-		palm peak pine pond reef ridge sage shore stone trail
-	)
-	local adj="${adjectives[$((RANDOM % ${#adjectives[@]}))]}"
-	local noun="${nouns[$((RANDOM % ${#nouns[@]}))]}"
-	echo "${adj}-${noun}"
 }
 
 log "--- Script started (pwd: $(pwd)) ---"
@@ -125,18 +110,18 @@ fi
 
 CURRENT_HASH=$(md5 -q "$TMPFILE" 2>/dev/null || md5sum "$TMPFILE" | cut -d' ' -f1)
 if [ "$CURRENT_HASH" != "$TEMPLATE_HASH" ]; then
-	NAME=$(generate_name)
 	log "Prompt content: $(cat "$TMPFILE")"
-	log "Generated name: $NAME"
-	log "Handing off to tmux run-shell: workmux add $NAME -b -P $TMPFILE"
+	log "Handing off to tmux run-shell: workmux add -A -b -P $TMPFILE"
 
 	# Hand off to tmux server so the background work survives popup teardown.
 	# tmux run-shell -b runs the command as a server-managed job, fully
-	# independent of this script's process group and PTY.
+	# independent of this script's process group and PTY. The LLM-based name
+	# generation (workmux -A) therefore runs after this popup closes and does
+	# not block the user.
 	BG_SCRIPT="${CURRENT_DIR}/workmux_add_bg.sh"
-	if ! tmux run-shell -b "$(printf '%q ' "$BG_SCRIPT" "$NAME" "$TMPFILE" "$LOGFILE" "$WORKTREE_ROOT")"; then
+	if ! tmux run-shell -b "$(printf '%q ' "$BG_SCRIPT" "$TMPFILE" "$LOGFILE" "$WORKTREE_ROOT")"; then
 		log "ERROR: tmux run-shell failed to launch background job"
-		tmux display-message -d 5000 "workmux failed to launch for '$NAME' — see $LOGFILE"
+		tmux display-message -d 5000 "workmux failed to launch in $WORKTREE_ROOT — see $LOGFILE"
 		rm -f "$TMPFILE"
 	fi
 

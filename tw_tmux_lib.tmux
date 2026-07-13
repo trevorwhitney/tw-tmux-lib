@@ -35,7 +35,7 @@ tmux bind C-c run "${current_dir}/scripts/new_window_prompt.sh"
 tmux bind C-t run "${current_dir}/scripts/new_tmp.sh"
 tmux bind C-a display-popup -d "#{pane_current_path}" -h 30 -w 100 -E "${current_dir}/scripts/workmux_add_prompt.sh"
 tmux bind C-o display-popup -d "#{pane_current_path}" -h 30 -w 100 -E "${current_dir}/scripts/open_worktree.sh"
-tmux bind C-r confirm-before -p "Remove worktree '#{window_name}'? (y/n)" "run 'workmux rm -f #{window_name}'"
+tmux bind C-x confirm-before -p "Remove worktree '#{window_name}'? (y/n)" "run 'workmux rm -f #{window_name}'"
 
 tmux set-option -gq status-left "$(do_interpolation "$(tmux show-options -gv status-left)")"
 tmux set-option -gq status-right "$(do_interpolation "$(tmux show-options -gv status-right)")"
